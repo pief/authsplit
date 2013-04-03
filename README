@@ -136,22 +136,23 @@ authsplit maps DokuWiki's authentication method calls as follows:
 - cleanGroup(): authsplit will always route this method call to the SECONDARY
   auth plugin since that is the one that dictates restrictions on group names.
 
-So to summarize which auth plugins are involved in which method calls
-(S=Stored here, E=Existance required, *=can create if enabled):
+So to summarize which auth plugins are involved in which method calls:
 
-                    Primary             Secondary
-checkPass()         S                   E*
-getUserData()       E                   S
-createUser()        (S)                 S
+                    PRIMARY AUTH PLUGIN   SECONDARY AUTH PLUGIN
+checkPass()         Stored here           Existance required
+                                          (Can create if enabled)
+getUserData()       Existance required    Stored here
+createUser()        Can create here       Created here
+                    if supported
 modifyUser()        <Depends on the information being modified>
-deleteUser()        -                   S
-retrieveUsers()     -                   X
-getUserCount()      -                   X
-addGroup()          -                   S
-retrieveGroups()    -                   S
-isCaseSensitive()   X                   -
-cleanUser()         X                   -
-cleanGroup()        -                   X
+deleteUser()        -                     Deleted here
+retrieveUsers()     -                     Stored here
+getUserCount()      -                     Counted here
+addGroup()          -                     Created here
+retrieveGroups()    -                     Retrieved here
+isCaseSensitive()   Determined here       -
+cleanUser()         Determined here       -
+cleanGroup()        -                     Determined here
 
 This theory tells you, for example, that if you combine authplain as PRIMARY
 auth plugin with authmysql as SECONDARY auth plugin:
