@@ -194,8 +194,8 @@ authsplit itself uses the following configuration settings:
   store additional user information such as real names, email addresses and
   groups.
 - autocreate_users: If enabled, authsplit will automatically create user
-  accounts for any users that exist in the primary auth plugin, but are yet
-  unknown in the secondary auth plugin. If disabled, users will either have to
+  accounts for any users that exist in the PRIMARY auth plugin, but are yet
+  unknown in the SECONDARY auth plugin. If disabled, users will either have to
   register themselves or created by the admin (eg. if registration has been
   disabled).
 
