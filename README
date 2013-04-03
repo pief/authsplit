@@ -199,7 +199,7 @@ authsplit itself uses the following configuration settings:
   register themselves or created by the admin (eg. if registration has been
   disabled).
 
-Note that you'll have to take SOME of the used auth plugin's settings into
+Note that you'll have to take some of the used auth plugin's settings into
 consideration whereas some may not apply any longer due to the way authsplit
 works. For example, when using authhttp as the PRIMARY auth plugin, authhttp's
 configuration settings no longer have any effect since all email addresses and
