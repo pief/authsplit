@@ -1,0 +1,225 @@
+
+              authsplit DokuWiki Split authentication plugin
+         Copyright (c) 2013 Pieter Hollants <pieter@hollants.com>
+           Licensed under the GNU Public License (GPL) version 3
+
+
+NOTE: This auth plugin requires DokuWiki WeatherWax RC1 (2013-03-06) or later!
+
+
+DESCRIPTION
+
+authsplit, while technically being an auth plugin, does NOT do any
+authentication itself. Instead, it splits DokuWiki's different authentication
+method calls among TWO other auth plugins that will do the actual work:
+- a PRIMARY auth plugin that will be used for VALIDATION of login names and
+  passwords only. This is where authentication really happens and the
+  authentication source behind this plugin is most probably shared with other
+  software and services.
+- a SECONDARY auth plugin that supplies ADDITIONAL user information such as
+  real names, email addresses and groups. This is most probably specific to
+  DokuWiki.
+
+This suggests using authsplit to combine a rather primitive, yet for some reason
+particularly useful auth plugin with an auth plugin that is more powerful, yet
+for some reason not useful enough if used on its own.
+
+The example that comes to mind is to use authhttp as PRIMARY auth plugin and
+authplain as SECONDARY auth plugin, thereby combining the advantages of reusing
+HTTP authentication information with an auth plugin that supplements everything
+HTTP authentication can't offer, such as email addresses. This is the scenario
+authsplit has been tested with, but in theory it should work with other auth
+plugin combinations as well. Feel free to give me feedback on other working
+combinations.
+
+As authsplit has to orchestrate two auth plugins and the user's state in
+them, it is possible that a user is known to one of the two plugins only or
+stored with different data. This may lead to the effect that while one auth
+plugin knows about him or her, (s)he is still being reported to DokuWiki as
+being unknown. Since these effects may not be particularly intuitive at first
+sight, you should read the following explanations carefully. It is ESSENTIAL to
+really understand how authsplit works in order to prevent accidental lockout
+or security breaches due to improper configuration and/or unexpected behavior!
+
+
+HOW IT WORKS
+
+In order to understand how authsplit works one doesn't really get around
+learning about DokuWiki's authentication system. Please refer to
+https://www.dokuwiki.org/devel:auth_plugins for fundamental basics.
+
+authsplit maps DokuWiki's authentication method calls as follows:
+
+- checkPass(): this is DokuWiki's method that validates login names and
+  passwords. authsplit will first make sure that the PRIMARY auth plugin
+  validates both login name and password successfully. If a user is not known
+  here, he is not known to DokuWiki at all.
+
+  If known and the password matches, authsplit will then try to obtain the
+  additional user information (real name, email address, groups) from the
+  SECONDARY auth plugin which means that the user will have to be known there
+  by the same login name, too. If not, behaviour depends on the autocreate_users
+  configuration setting:
+  - if enabled (and the SECONDARY auth plugin reports being capable of adding
+    users), authsplit will create a user account there, too, using user
+    information from the PRIMARY auth plugin as basis. As this information will
+    most likely not be very useful, the user will not only be notified that an
+    account has been automatically created for him or her, but that (s)he should
+    also review his or her user profile.
+  - otherwise the user looks to DokuWiki as being not logged in and will thus
+    most likely see an "Access denied" page. He or she will either have to
+    register him- or herself or, if self-registration has been disabled, the
+    Admin will have to create an account for him or her.
+
+- getUserData(): this is the method DokuWiki uses eg. to retrieve the user's
+  real name for display in the "Logged in as" section in the upper right (if
+  you use the default "DokuWiki" template). authsplit will call the PRIMARY
+  auth plugin's getUserData() method only to make sure the user exists there and
+  then return the SECONDARY auth plugin's getUserData() information to DokuWiki.
+  Thus, a user has to be known to both auth plugins, but the SECONDARY's user
+  information matters. Any group membership information returned from the PRIMARY
+  auth plugin will be silently ignored.
+
+- createUser(): this is the method that gets called if users register themselves
+  or the Admin uses DokuWiki's user manager to create an account for them.
+
+  authhttp will first check if the PRIMARY auth plugin is capable of adding
+  users. If so, it will try to create the user there, first. This is so that
+  you can use DokuWiki to quickly create a user both in DokuWiki AND your
+  common authentication source without having to fire up whatever admin tool
+  the PRIMARY auth plugin would otherwise require.
+
+  If successful (or the PRIMARY auth plugin does not support adding users, as is
+  the case for authhttp), the user is then created in the SECONDARY auth plugin
+  but with an EMPTY password. This is by intent since passwords are supposed to
+  come from the PRIMARY auth plugin.
+
+  This also means that an Admin can not specify a password in the user manager
+  unless the PRIMARY auth plugin reports being capable of modifying passwords,
+  too. If not (and this is the case eg. for authhttp), this also means that in
+  the user self-registration form, users should not be able to specify a
+  password and DokuWiki should not try to generate one for them because it
+  wouldn't be stored anywhere and the user would thus get irritated. authhttp
+  eg. comes with an action plugin that takes care of this.
+
+- modifyUser(): where authsplit routes a change depends on the actual change
+  itself:
+  - passwords are modified in the PRIMARY auth plugin only since by design the
+    SECONDARY auth plugin knows empty ones only
+  - group membership is always modified in the SECONDARY auth plugin
+  - for login names, real names and email addresses, authsplit will try to
+    modify in the PRIMARY auth plugin first (if that plugin reports being
+    capable of modifying it, that is), then in the SECONDARY auth plugin.
+
+- deleteUser(): authsplit will ALWAYS route delete user requests to the
+  SECONDARY auth plugin only. This is because it can't know whether user
+  accounts known to the PRIMARY auth plugin are yet in use by other software.
+  Thus, deleting a user with the user manager will remove knowledge of his or
+  her existance in DokuWiki only.
+
+- retrieveUsers() / getUserCount(): authsplit will always route these method
+  calls to the SECONDARY auth plugin, following the concept that DokuWiki's
+  user manager is supposed to manage DokuWiki users in the first place. Thus,
+  even if the PRIMARY auth plugin offered these methods, the user lists and
+  counts obtained there would not be of much use since, unless autocreate_users
+  is enabled, only the SECONDARY auth plugin would really know which users resp.
+  how many users really had DokuWiki access.
+
+- addGroup() / retrieveGroups(): authsplit will always route these method calls
+  to the SECONDARY auth plugin since, by design, that is where group membership
+  information comes from.
+
+- isCaseSensitive() / cleanUser(): authsplit will always route these method
+  calls to the PRIMARY auth plugin since that is the one that dictates
+  restrictions on login names.
+
+- cleanGroup(): authsplit will always route this method call to the SECONDARY
+  auth plugin since that is the one that dictates restrictions on group names.
+
+So to summarize which auth plugins are involved in which method calls
+(S=Stored here, E=Existance required, *=can create if enabled):
+
+                    Primary             Secondary
+checkPass()         S                   E*
+getUserData()       E                   S
+createUser()        (S)                 S
+modifyUser()        <Depends on the information being modified>
+deleteUser()        -                   S
+retrieveUsers()     -                   X
+getUserCount()      -                   X
+addGroup()          -                   S
+retrieveGroups()    -                   S
+isCaseSensitive()   X                   -
+cleanUser()         X                   -
+cleanGroup()        -                   X
+
+This theory tells you, for example, that if you combine authplain as PRIMARY
+auth plugin with authmysql as SECONDARY auth plugin:
+- login names and passwords would come from authplain, ie. stored in the
+  conf/users.auth.php file.
+- additional user information would come from authmysql.
+- users would be created in both authplain and authmysql, modified in one or
+  both (depending on the information being modified) but deleted in authmysql
+  only
+- groups would be created in authmysql.
+
+Of course, this example is not a particular useful combination. After all, why
+would you want to store users in a DokuWiki-specific textfile and put additional
+information in a MySQL database...
+
+As mentioned above, using authhttp as the PRIMARY auth plugin and authplain
+as the SECONDARY auth plugin is the prime use case. You could of course also
+try to combine authhttp with authmysql, or authldap with authplain etc. In
+effect, just try things out and give me feedback on working combinations and
+their particular use cases.
+
+
+INSTALLATION
+
+Download the latest version from https://github.com/pief/authsplit/zipball/master
+and rename the extracted directory to "authsplit", otherwise the plugin won't
+work.
+
+Please refer to http://www.dokuwiki.org/plugins for additional info
+on how to install plugins in DokuWiki.
+
+
+CONFIGURATION AND SETTINGS
+
+authsplit itself uses the following configuration settings:
+- primary_authplugin: This is the DokuWiki auth plugin that will be used to
+  validate login names and passwords. An example candidate is my authhttp
+  plugin.
+- secondary_authplugin: This is the DokuWiki auth plugin that will be used to
+  store additional user information such as real names, email addresses and
+  groups.
+- autocreate_users: If enabled, authsplit will automatically create user
+  accounts for any users that exist in the primary auth plugin, but are yet
+  unknown in the secondary auth plugin. If disabled, users will either have to
+  register themselves or created by the admin (eg. if registration has been
+  disabled).
+
+Note that you'll have to take SOME of the used auth plugin's settings into
+consideration whereas some may not apply any longer due to the way authsplit
+works. For example, when using authhttp as the PRIMARY auth plugin, authhttp's
+configuration settings no longer have any effect since all email addresses and
+group information come from the SECONDARY auth plugin instead.
+
+
+REFERENCES
+
+Visit the DokuWiki plugin page at
+
+  https://www.dokuwiki.org/plugin:authsplit
+
+To follow development more closely, clone the GitHub repo at
+
+  https://github.com/pief/authsplit.git
+
+
+CREDITS
+
+This plugin in based on ideas in the "ggauth" auth backend by Grant Gardner
+<grant@lastweekend.com.au>, https://www.dokuwiki.org/auth:ggauth. Grant does
+not actively maintain ggauth anymore, so an update for the new auth plugins
+concept is unlikely.
