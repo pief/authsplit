@@ -66,10 +66,10 @@ authsplit maps DokuWiki's authentication method calls as follows:
     most likely not be very useful, the user will not only be notified that an
     account has been automatically created for him or her, but that (s)he should
     also review his or her user profile.
-  - otherwise the user looks to DokuWiki as being not logged in and will thus
-    most likely see an "Access denied" page. He or she will either have to
-    register him- or herself or, if self-registration has been disabled, the
-    Admin will have to create an account for him or her.
+  - otherwise the user seems to DokuWiki to be not logged in and will thus most
+    likely see an "Access denied" page. He or she will either have to register
+    him- or herself or, if self-registration has been disabled, the Admin will
+    have to create an account for him or her.
 
 - getUserData(): this is the method DokuWiki uses eg. to retrieve the user's
   real name for display in the "Logged in as" section in the upper right (if
