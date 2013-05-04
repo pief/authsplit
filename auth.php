@@ -297,9 +297,10 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      * @return bool|null
      */
     public function createUser($user, $pass, $name, $mail, $grps = null) {
-        /* If the primary auth plugin supports creating users, we try to create
-           the user there first. */
-        if ($this->authplugins['primary']->cando['addUser']) {
+        /* Does the user not exist yet in the primary auth plugin and does it
+           support creating users? */
+        $userinfo = $this->authplugins['primary']->getUserData($user);
+        if (!$userinfo && $this->authplugins['primary']->cando['addUser']) {
             $result = $this->authplugins['primary']->createUser(
                 $user, $pass, $name, $email, ''
             );
