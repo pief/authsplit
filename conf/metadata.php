@@ -19,4 +19,4 @@ if (!class_exists('setting_authtype_nosplit')) {
 $meta['primary_authplugin']   = array('authtype_nosplit', '_cautionList' => array('plugin____authsplit____primary_authplugin' => 'danger'));
 $meta['secondary_authplugin'] = array('authtype_nosplit', '_cautionList' => array('plugin____authsplit____secondary_authplugin' => 'danger'));
 $meta['autocreate_users']     = array('onoff');
-
+$meta['debug']                = array('onoff');

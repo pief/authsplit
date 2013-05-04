@@ -12,6 +12,22 @@ if(!defined('DOKU_INC')) die();
 class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
     protected $authplugins;
     protected $autocreate_users;
+    protected $debug;
+
+    /**
+     * Show a debug message
+     *
+     * @param  string $message  The message to show
+     * @param  int    $err      -1 for error, 0 for info, 1 for success
+     * @param  int    $line     The line in $file that triggered the message.
+     * @param  string $file     The filename that triggered the message.
+     * @return void
+     */
+    protected function _debug($message, $err, $line, $file) {
+        if (!$this->debug)
+            return;
+        msg($message, $err, $line, $file);
+    }
 
     /**
      * Constructor.
@@ -43,10 +59,18 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             }
         }
 
-        /* One more config setting we'll need to take care of */
+        /* Create users automatically? */
         $this->autocreate_users = $this->getConf('autocreate_users', null);
         if ($this->autocreate_users === null) {
             msg(sprintf($this->getLang('nocfg'), 'autocreate_users'), -1);
+            $this->success = false;
+            return;
+        }
+
+        /* Show debug messages? */
+        $this->debug = $this->getConf('debug', null);
+        if ($this->debug === null) {
+            msg(sprintf($this->getLang('nocfg'), 'debug'), -1);
             $this->success = false;
             return;
         }
@@ -74,6 +98,30 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
 
         /* Whether we can do logout or not depends on the primary auth plugin */
         $this->cando['logout'] = $this->authplugins['primary']->cando['logout'];
+
+        $msg = 'authsplit:__construct(): '.
+               $this->authplugins['primary']->getPluginName().'/'.
+               $this->authplugins['secondary']->getPluginName().' '.
+               'combination can ';
+        $parts = array(
+            'addUser'      => 'add users',
+            'delUser'      => 'delete users',
+            'modLogin'     => 'modify login names',
+            'modPass'      => 'modify passwords',
+            'modName'      => 'modify real names',
+            'modMail'      => 'modify E-Mail addresses',
+            'modGroups'    => 'modify groups',
+            'getUsers'     => 'get user list',
+            'getUserCount' => 'get user counts',
+            'getGroups'    => 'get groups',
+            'logout'       => 'logout users',
+        );
+        foreach ($this->cando as $key => $value) {
+            if ($this->cando[$key])
+                $msg .= $parts[$key].', ';
+        }
+        $msg = rtrim($msg, ', ').'.';
+        $this->_debug($msg, 1, __LINE__, __FILE__);
     }
 
     /**
@@ -85,20 +133,48 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      */
     public function checkPass($user, $pass) {
         /* First validate the username and password with the primary plugin. */
-        if (!$this->authplugins['primary']->checkPass($user, $pass))
+        if (!$this->authplugins['primary']->checkPass($user, $pass)) {
+            $this->_debug(
+                'authsplit:checkPass(): primary auth plugin\'s checkPass() '.
+                'failed', -1, __LINE__, __FILE__
+            );
             return false;
+        }
+        $this->_debug(
+            'authsplit:checkPass(): primary auth plugin authenticated the '.
+            'user successfully.', 1, __LINE__, __FILE__
+        );
 
         /* Then make sure that the secondary auth plugin also knows about
            the user. */
         $userinfo = $this->authplugins['secondary']->getUserData($user);
         if (!$userinfo) {
+            $this->_debug(
+                'authsplit:checkPass(): secondary auth plugin\'s getUserData() '.
+                'failed, seems user is yet unknown there.', -1,
+                __LINE__, __FILE__
+            );
+
+            $this->_debug(
+                'authsplit:checkPass(): autocreate_users is set to '.
+                $this->autocreate_users.'.',
+                $this->autocreate_users == 1 ? 1 : -1,
+                __LINE__, __FILE__
+            );
+
             /* Make sure automatic user creation is enabled */
             if (!$this->autocreate_users)
                 return false;
 
             /* Make sure the secondary auth plugin can create user accounts */
             if (!$this->authplugins['secondary']->cando['addUser']) {
-                msg(sprintf($this->getLang('erraddusercap'), $this->authplugins['secondary']->getPluginName()), -1);
+                msg(
+                    sprintf(
+                        $this->getLang('erraddusercap'),
+                        $this->authplugins['secondary']->getPluginName()
+                    ),
+                    -1
+                );
                 return false;
             }
 
@@ -107,17 +183,37 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
                account in the secondary auth plugin. */
             $params = $this->authplugins['primary']->getUserData($user);
             if (!$params) {
-                msg(sprintf($this->getLang('erradduserinfo'), $this->authplugins['primary']->getPluginName()), -1);
+                msg(
+                    sprintf(
+                        $this->getLang('erradduserinfo'),
+                        $this->authplugins['primary']->getPluginName()
+                    ),
+                    -1
+                );
                 return false;
             }
+            $this->_debug(
+                'authsplit:checkPass(): primary auth plugin\'s getUserData(): '.
+                $this->_dumpUserData($params).'.', 1, __LINE__, __FILE__
+            );
 
             /* Create the new user account */
-            $result = $this->triggerUserMod('create', array(
-                $user, $pass, $params['name'], $params['mail'], $params['grps']
-            ));
+            $result = $this->triggerUserMod(
+                'create',
+                array(
+                    $user, $pass,
+                    $params['name'], $params['mail'], $params['grps']
+                )
+            );
             if ($result === false || $result === null)
+            {
+                $this->_debug(
+                    'authsplit:checkPass(): primary auth plugin\'s '.
+                    'getUserData() could not supply data.', -1,
+                    __LINE__, __FILE__
+                );
                 return false;
-
+            }
             msg($this->getLang('autocreated'), -1);
         }
         return true;
@@ -139,9 +235,47 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
     public function getUserData($user) {
         /* A user must be present in BOTH auth plugins. */
         $userinfo = $this->authplugins['primary']->getUserData($user);
-        if (!$userinfo)
+        if (!$userinfo) {
+            $this->_debug(
+                'authsplit:checkPass(): primary auth plugin\'s getUserData() '.
+                'failed, seems user is yet unknown there.', 1,
+                __LINE__, __FILE__
+            );
             return false;
-        return $this->authplugins['secondary']->getUserData($user);
+        }
+
+        $userinfo = $this->authplugins['secondary']->getUserData($user);
+        if (!$userinfo) {
+            $this->_debug(
+                'authsplit:checkPass(): secondary auth plugin\'s getUserData() '.
+                'failed, seems user is yet unknown there.', 1,
+                __LINE__, __FILE__
+            );
+            return false;
+        }
+        $this->_debug(
+            'authsplit:getUserData(): secondary auth plugin\'s getUserData(): '.
+            $this->_dumpUserData($userinfo).'.', 1, __LINE__, __FILE__
+        );
+
+        return $userinfo;
+    }
+
+    /**
+     * Returns a string representation of user data for debugging purposes
+     *
+     * @param  array  $user An array with user data
+     * @return string
+     */
+    protected function _dumpUserData($user) {
+        $msg = 'Name: "'.$user['name'].'", '.
+               'Mail: "'.$user['mail'].'", ' .
+               'Groups: ';
+        foreach ($user['grps'] as $grp) {
+            $msg .= '"'.$grp.'", ';
+        }
+        $msg = rtrim($msg, ', ');
+        return $msg;
     }
 
     /**
@@ -166,15 +300,39 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
         /* If the primary auth plugin supports creating users, we try to create
            the user there first. */
         if ($this->authplugins['primary']->cando['addUser']) {
-            $result = $this->authplugins['primary']->createUser($user, $pass, $name, $email, '');
-            if ($result === false || $result === null)
+            $result = $this->authplugins['primary']->createUser(
+                $user, $pass, $name, $email, ''
+            );
+            if ($result === false || $result === null) {
+                $this->_debug(
+                    'authsplit:createUser(): primary auth plugin\'s '.
+                    'createUser() failed.', -1, __LINE__, __FILE__
+                );
                 return $result;
+            }
+            $this->_debug(
+                'authsplit:createUser(): user created in primary auth plugin.',
+                1, __LINE__, __FILE__
+            );
         }
 
         /* We need to create the user in the secondary auth plugin in any case. */
-        $result = $this->authplugins['secondary']->createUser($user, '', $name, $mail, $grps);
-        if ($result === false || $result === null)
+        $result = $this->authplugins['secondary']->createUser(
+            $user, '', $name, $mail, $grps
+        );
+        if ($result === false || $result === null) {
+            $this->_debug(
+                'authsplit:createUser(): secondary auth plugin\'s '.
+                'createUser() failed.', -1, __LINE__, __FILE__
+            );
             return $result;
+        }
+
+        $this->_debug(
+            'authsplit:createUser(): user created in secondary auth plugin.',
+            1, __LINE__, __FILE__
+        );
+
         return true;
     }
 
@@ -184,7 +342,8 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      * Set the mod* capabilities according to the implemented features
      *
      * @param   string $user    nick of the user to be changed
-     * @param   array  $changes array of field/value pairs to be changed (password will be clear text)
+     * @param   array  $changes array of field/value pairs to be changed
+     *                          (password will be clear text)
      * @return  bool
      */
     public function modifyUser($user, $changes) {
@@ -194,37 +353,68 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
         foreach ($changes as $field => $value) {
             if ($field == 'pass') {
                 /* Passwords must be changed in the primary auth plugin */
-                $result = $this->authplugins['primary']->modifyUser($user, array(
-                    'pass' => $value
-                ));
-                if (!$result)
+                $result = $this->authplugins['primary']->modifyUser(
+                    $user,
+                    array(
+                        'pass' => $value
+                    )
+                );
+                if (!$result) {
+                    $this->_debug(
+                        'authsplit:modifyUser(): primary auth plugin\'s '.
+                        'modifyUser() failed.', -1, __LINE__, __FILE__
+                    );
                     return false;
+                }
             }
             elseif ($field == 'grps') {
                 /* Groups are handled by the secondary auth plugin. */
-                $result = $this->authplugins['secondary']->modifyUser($user, array(
-                    'grps' => $value
-                ));
-                if (!$result)
+                $result = $this->authplugins['secondary']->modifyUser(
+                    $user,
+                    array(
+                        'grps' => $value
+                    )
+                );
+                if (!$result) {
+                    $this->_debug(
+                        'authsplit:modifyUser(): secondary auth plugin\'s '.
+                        'modifyUser() failed.', -1, __LINE__, __FILE__
+                    );
                     return false;
+                }
             }
             elseif ( ($field == 'user') || ($field == 'name') || ($field == 'mail') ) {
                 /* If the primary auth plugin supports the update,
                    we'll try it there first. */
                 if ($this->authplugins['primary']->canDo['mod' + ucfirst($field)]) {
-                    $result = $this->authplugins['primary']->modifyUser($user, array(
-                        $field => $value
-                    ));
-                    if (!$result)
+                    $result = $this->authplugins['primary']->modifyUser(
+                        $user, array(
+                            $field => $value
+                        )
+                    );
+                    if (!$result) {
+                        $this->_debug(
+                            'authsplit:modifyUser(): primary auth plugin\'s '.
+                            'modifyUser() failed.', -1, __LINE__, __FILE__
+                        );
                         return false;
+                    }
                 }
 
                 /* Now in the secondary auth plugin. */
-                $result = $this->authplugins['secondary']->modifyUser($user, array(
-                    $field => $value
-                ));
-                if (!$result)
+                $result = $this->authplugins['secondary']->modifyUser(
+                    $user,
+                    array(
+                        $field => $value
+                    )
+                );
+                if (!$result) {
+                    $this->_debug(
+                        'authsplit:modifyUser(): secondary auth plugin\'s '.
+                        'modifyUser() failed.', -1, __LINE__, __FILE__
+                    );
                     return false;
+                }
             }
         }
 
@@ -244,7 +434,14 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
            Just because we don't want the account in DokuWiki any more, does not
            mean that there are no other services that depend on the account's
            existance in the primary auth source. */
-        return $this->authplugins['secondary']->deleteUsers($users);
+        $result = $this->authplugins['secondary']->deleteUsers($users);
+        if (!$result) {
+            $this->_debug(
+                'authsplit:deleteUsers(): secondary auth plugin\'s '.
+                'deleteUsers() failed.', -1, __LINE__, __FILE__
+            );
+        }
+        return $result;
     }
 
     /**
@@ -255,11 +452,22 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      * @param   int   $start     index of first user to be returned
      * @param   int   $limit     max number of users to be returned
      * @param   array $filter    array of field/pattern pairs, null for no filter
-     * @return  array list of userinfo (refer getuseraccts for internal userinfo details)
+     * @return  array list of userinfo (refer to getuseraccts for internal
+     *                userinfo details)
      */
     public function retrieveUsers($start = 0, $limit = -1, $filter = null) {
-        /* We're always interested in the users defined in the secondary auth plugin. */
-        return $this->authplugins['secondary']->retrieveUsers($start, $limit, $filter);
+        /* We're always interested in the users defined in the secondary auth
+           plugin. */
+        $result = $this->authplugins['secondary']->retrieveUsers(
+            $start, $limit, $filter
+        );
+        if (!$result) {
+            $this->_debug(
+                'authsplit:retrieveUsers(): secondary auth plugin\'s '.
+                'retrieveUsers() failed.', -1, __LINE__, __FILE__
+            );
+        }
+        return $result;
     }
 
     /**
@@ -272,7 +480,14 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      */
     public function getUserCount($filter = array()) {
         /* We're always interested in the users defined in the secondary auth plugin. */
-        return $this->authplugins['secondary']->getUserCount($filter);
+        $result = $this->authplugins['secondary']->getUserCount($filter);
+        if (!$result) {
+            $this->_debug(
+                'authsplit:getUserCount(): secondary auth plugin\'s '.
+                'getUserCount() failed.', -1, __LINE__, __FILE__
+            );
+        }
+        return $result;
     }
 
     /**
@@ -285,7 +500,14 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      */
     public function addGroup($group) {
         /* Groups are always defined in the secondary auth plugin. */
-        return $this->authplugins['secondary']->addGroup($group);
+        $result = $this->authplugins['secondary']->addGroup($group);
+        if (!$result) {
+            $this->_debug(
+                'authsplit:addGroup(): secondary auth plugin\'s addGroup() '.
+                'failed.', -1, __LINE__, __FILE__
+            );
+        }
+        return $result;
     }
 
     /**
@@ -299,7 +521,14 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      */
     public function retrieveGroups($start = 0, $limit = 0) {
         /* Groups are always defined in the secondary auth plugin. */
-        return $this->authplugins['secondary']->retrieveGroups($start, $limit);
+        $result = $this->authplugins['secondary']->retrieveGroups($start, $limit);
+        if (!$result) {
+            $this->_debug(
+                'authsplit:retrieveGroups(): secondary auth plugin\'s '.
+                'retrieveGroups() failed.', -1, __LINE__, __FILE__
+            );
+        }
+        return $result;
     }
 
     /**
@@ -312,7 +541,13 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      */
     public function isCaseSensitive() {
         /* The primary auth plugin dictates case-sensitivity of login names. */
-        return $this->authplugins['primary']->isCaseSensitive();
+        $result = $this->authplugins['primary']->isCaseSensitive();
+        $status = $result ? "Yes" : "No";
+        $this->_debug(
+            'authsplit:isCaseSensitive(): primary auth plugin\'s '.
+            'isCaseSensitive(): '.$status.'.', 1, __LINE__, __FILE__
+        );
+        return $result;
     }
 
     /**
@@ -329,7 +564,12 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      */
     public function cleanUser($user) {
         /* The primary auth plugin dictates possible login name restrictions. */
-        return $this->authplugins['primary']->cleanUser($user);
+        $result = $this->authplugins['primary']->cleanUser($user);
+        $this->_debug(
+            'authsplit:cleanUser(): primary auth plugin\'s '.
+            'cleanUser("'.$user.'"): "'.$result.'".', 1, __LINE__, __FILE__
+        );
+        return $result;
     }
 
     /**
@@ -349,7 +589,12 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
     public function cleanGroup($group) {
         /* The secondary auth plugin dictates possible group names
            restrictions. */
-        return $this->authplugins['secondary']->cleanGroup($group);;
+        $result = $this->authplugins['secondary']->cleanGroup($group);
+        $this->_debug(
+            'authsplit:cleanGroup(): secondary auth plugin\'s '.
+            'cleanGroup("'.$group.'"): "'.$result.'".', 1, __LINE__, __FILE__
+        );
+        return $result;
     }
 }
 
