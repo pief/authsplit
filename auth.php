@@ -387,7 +387,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             elseif ( ($field == 'user') || ($field == 'name') || ($field == 'mail') ) {
                 /* If the primary auth plugin supports the update,
                    we'll try it there first. */
-                if ($this->authplugins['primary']->canDo['mod' + ucfirst($field)]) {
+                if ($this->authplugins['primary']->canDo['mod' . ucfirst($field)]) {
                     $result = $this->authplugins['primary']->modifyUser(
                         $user, array(
                             $field => $value
