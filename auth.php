@@ -623,6 +623,17 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
         }
         return false;
     }
+    
+    /**
+     * Check user+password on external primary auth
+     *
+     * @param   string $user the user name
+     * @param   string $pass the clear text password
+     * @return  bool
+     */
+    public function logOff() { 
+        $this->authplugins['primary']->logOff();
+    }
 }
 
 // vim:ts=4:sw=4:et:
