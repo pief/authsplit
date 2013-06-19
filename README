@@ -55,11 +55,23 @@ authsplit maps DokuWiki's authentication method calls as follows:
   validates both login name and password successfully. If a user is not known
   here, he is not known to DokuWiki at all.
 
-  If known and the password matches, authsplit will then try to obtain the
-  additional user information (real name, email address, groups) from the
-  SECONDARY auth plugin which means that the user will have to be known there
-  by the same login name, too. If not, behaviour depends on the autocreate_users
-  configuration setting:
+  If known and the password matches, authsplit then calls the internal helper
+  method _checkUserOnSecondaryAuthPlugin() (see below).
+
+- trustExternal(): this is the method DokuWiki calls if the PRIMARY auth
+  plugin uses external authentication. authsplit will let the auth plugin itself
+  do whatever authentication is required, eg. against a third-party cookie.
+
+  As with checkPass(), _checkUserOnSecondaryAuthPlugin() is then called. Due to
+  the semantics of external authentication, however, the method ends by doing an
+  additional call to getUserData() to update the global $USERINFO array with the
+  information from the SECONDARY auth plugin.
+
+- _checkUserOnSecondaryAuthPlugin(): This is an internal helper method that
+  tries to obtain the additional user information (real name, email address,
+  groups) from the SECONDARY auth plugin, which means that the user will have to
+  be known there by the same login name, too. If not, behaviour depends on the
+  autocreate_users configuration setting:
   - if enabled (and the SECONDARY auth plugin reports being capable of adding
     users), authsplit will create a user account there, too, using user
     information from the PRIMARY auth plugin as basis. As this information will
@@ -70,6 +82,13 @@ authsplit maps DokuWiki's authentication method calls as follows:
     likely see an "Access denied" page. He or she will either have to register
     him- or herself or, if self-registration has been disabled, the Admin will
     have to create an account for him or her.
+
+- logOff(): DokuWiki documentation says this method is run "in addition to the
+  usual logOff. Useful with trustExternal() to initiate actions for the
+  external backend, eg. use it to clear cookies or similar actions".
+
+  authsplit just delegates the call to the PRIMARY auth plugin's logOff()
+  method.
 
 - getUserData(): this is the method DokuWiki uses eg. to retrieve the user's
   real name for display in the "Logged in as" section in the upper right (if
@@ -140,8 +159,11 @@ authsplit maps DokuWiki's authentication method calls as follows:
 So to summarize which auth plugins are involved in which method calls:
 
                     PRIMARY AUTH PLUGIN   SECONDARY AUTH PLUGIN
-checkPass()         Stored here           Existance required
+checkPass()         Authenticated here    Existance required
                                           (Can create if enabled)
+trustExternal()     Authenticated here    Existance required
+                                          (Can create if enabled)
+logOff()            Done here             -
 getUserData()       Existance required    Stored here
 createUser()        Can create here       Created here
                     if supported

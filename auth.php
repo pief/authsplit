@@ -92,9 +92,9 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             $this->cando[$cap] = $this->authplugins['secondary']->canDo($cap);
         }
 
-        /* Since we implement all auth plugin methods, the 'external' capability
-           must be false */
-        $this->cando['external'] = false;
+        /* The primary auth plugin determines whether we do external
+           authentication (eg. against a third party cookie). */
+        $this->cando['external'] = $this->authplugins['primary']->cando['external'];
 
         /* Whether we can do logout or not depends on the primary auth plugin */
         $this->cando['logout'] = $this->authplugins['primary']->canDo('logout');
@@ -125,7 +125,11 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
     }
 
     /**
-     * Check user+password
+     * Authenticate user (DokuWiki-style user/password authentication)
+     *
+     * This method is called if DokuWiki's internal authentication system is
+     * used (primary auth plugin's canDo['external'] == false) and the user
+     * supplied a username and a password.
      *
      * @param   string $user the user name
      * @param   string $pass the clear text password
@@ -145,78 +149,146 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             'user successfully.', 1, __LINE__, __FILE__
         );
 
-        /* Then make sure that the secondary auth plugin also knows about
-           the user. */
-        $userinfo = $this->authplugins['secondary']->getUserData($user);
-        if (!$userinfo) {
+        /* Then make sure that the secondary auth plugin also knows about the
+           user. */
+        return $this->_checkUserOnSecondaryAuthPlugin($user);
+    }
+
+    /**
+     * Authenticate user (external authentication)
+     *
+     * This method is called on every page load if external authentication is
+     * used (primary auth plugin's canDo['external'] == true).
+     *
+     * @param   string $user   The user name (may be empty)
+     * @param   string $pass   The clear text password (may be empty)
+     * @param   bool   $sticky Whether the cookie should not expire
+     * @return  bool
+     */
+    public function trustExternal($user, $pass, $sticky = false) { 
+        global $USERINFO;
+
+        /* First delegate to the primary plugin's trustExternal() to
+           validate the user (by means of a password, a cookie or whatever). */
+        if (!$this->authplugins['primary']->trustExternal($user, $pass, $sticky)) {
             $this->_debug(
-                'authsplit:checkPass(): secondary auth plugin\'s getUserData() '.
-                'failed, seems user is yet unknown there.', -1,
-                __LINE__, __FILE__
+                'authsplit:trustExternal(): primary auth plugin\'s ' .
+                'trustExternal() failed', -1, __LINE__, __FILE__
             );
-
-            $this->_debug(
-                'authsplit:checkPass(): autocreate_users is set to '.
-                $this->autocreate_users.'.',
-                $this->autocreate_users == 1 ? 1 : -1,
-                __LINE__, __FILE__
-            );
-
-            /* Make sure automatic user creation is enabled */
-            if (!$this->autocreate_users)
-                return false;
-
-            /* Make sure the secondary auth plugin can create user accounts */
-            if (!$this->authplugins['secondary']->cando['addUser']) {
-                msg(
-                    sprintf(
-                        $this->getLang('erraddusercap'),
-                        $this->authplugins['secondary']->getPluginName()
-                    ),
-                    -1
-                );
-                return false;
-            }
-
-            /* Since auth plugins by definition must have a getUserData()
-               method, we use the primary auth plugin's data to create a user
-               account in the secondary auth plugin. */
-            $params = $this->authplugins['primary']->getUserData($user);
-            if (!$params) {
-                msg(
-                    sprintf(
-                        $this->getLang('erradduserinfo'),
-                        $this->authplugins['primary']->getPluginName()
-                    ),
-                    -1
-                );
-                return false;
-            }
-            $this->_debug(
-                'authsplit:checkPass(): primary auth plugin\'s getUserData(): '.
-                $this->_dumpUserData($params).'.', 1, __LINE__, __FILE__
-            );
-
-            /* Create the new user account */
-            $result = $this->triggerUserMod(
-                'create',
-                array(
-                    $user, $pass,
-                    $params['name'], $params['mail'], $params['grps']
-                )
-            );
-            if ($result === false || $result === null)
-            {
-                $this->_debug(
-                    'authsplit:checkPass(): primary auth plugin\'s '.
-                    'getUserData() could not supply data.', -1,
-                    __LINE__, __FILE__
-                );
-                return false;
-            }
-            msg($this->getLang('autocreated'), -1);
+            return false;
         }
+
+        /* As $user may be empty (eg. when authentication is done via a cookie)
+           we set it from the server environment */
+        $user = $_SERVER['REMOTE_USER'];
+        $this->_debug(
+            'authsplit:trustExternal(): derived user name: ' . $user,
+            -1, __LINE__, __FILE__
+        );
+
+        /* Then make sure the secondary auth plugin also knows about the
+           user. */
+        if ($this->_checkUserOnSecondaryAuthPlugin($user)) {
+            /* With external authentication, $USERINFO must be set on every
+               page load. */
+            $USERINFO = $this->getUserData($user, true);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Ensures that the user is known to the secondary auth plugin as well.
+     *
+     * @param   string $user the user name
+     * @return  bool
+     */
+    public function _checkUserOnSecondaryAuthPlugin($user) {
+        /* User already known? */
+        $userinfo = $this->authplugins['secondary']->getUserData($user);
+        if ($userinfo)
+            return true;
+
+        $this->_debug(
+            'authsplit:'.__FUNCTION__.'(): secondary auth plugin\'s ' .
+            'getUserData() failed, seems user is yet unknown there.', -1,
+            __LINE__, __FILE__
+        );
+
+        $this->_debug(
+            'authsplit:'.__FUNCTION__.'(): autocreate_users is set to '.
+            $this->autocreate_users.'.',
+            $this->autocreate_users == 1 ? 1 : -1,
+            __LINE__, __FILE__
+        );
+
+        /* Make sure automatic user creation is enabled */
+        if (!$this->autocreate_users)
+            return false;
+
+        /* Make sure the secondary auth plugin can create user accounts */
+        if (!$this->authplugins['secondary']->cando['addUser']) {
+            msg(
+                sprintf(
+                    $this->getLang('erraddusercap'),
+                    $this->authplugins['secondary']->getPluginName()
+                ),
+                -1
+            );
+            return false;
+        }
+
+        /* Since auth plugins by definition must have a getUserData()
+           method, we use the primary auth plugin's data to create a user
+           account in the secondary auth plugin. */
+        $params = $this->authplugins['primary']->getUserData($user);
+        if (!$params) {
+            msg(
+                sprintf(
+                    $this->getLang('erradduserinfo'),
+                    $this->authplugins['primary']->getPluginName()
+                ),
+                -1
+            );
+            return false;
+        }
+        $this->_debug(
+            'authsplit:'.__FUNCTION__.'(): primary auth plugin\'s ' .
+            'getUserData(): '.$this->_dumpUserData($params).'.',
+            1, __LINE__, __FILE__
+        );
+
+        /* Create the new user account */
+        $result = $this->triggerUserMod(
+            'create',
+            array(
+                $user, $pass,
+                $params['name'], $params['mail'], $params['grps']
+            )
+        );
+        if ($result === false || $result === null)
+        {
+            $this->_debug(
+                'authsplit:'.__FUNCTION__.'(): primary auth plugin\'s '.
+                'getUserData() could not supply data.', -1,
+                __LINE__, __FILE__
+            );
+            return false;
+        }
+        msg($this->getLang('autocreated'), -1);
+
         return true;
+    }
+
+    /**
+     * Logoff the user (useful for external authentication)
+     *
+     * @param   string $user the user name
+     * @param   string $pass the clear text password
+     * @return  bool
+     */
+    public function logOff() { 
+        return $this->authplugins['primary']->logOff();
     }
 
     /**
