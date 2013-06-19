@@ -79,17 +79,17 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
            support that. However, at this place we just consider the secondary
            auth plugin as otherwise admins can not add user accounts there in
            advance. */
-        $this->cando['modLogin'] = $this->authplugins['secondary']->cando['modLogin'];
+        $this->cando['modLogin'] = $this->authplugins['secondary']->canDo('modLogin');
 
         /* To modify passwords, the primary auth plugin must support it */
-        $this->cando['modPass'] = $this->authplugins['primary']->cando['modPass'];
+        $this->cando['modPass'] = $this->authplugins['primary']->canDo('modPass');
 
         /* To add and delete user accounts, modify real names, email addresses,
            group memberships and groups, it is sufficient for the secondary
            auth plugin to support it. */
         foreach (array('addUser', 'delUser', 'modName', 'modMail', 'modGroups',
                        'getUsers', 'getUserCount', 'getGroups') as $cap) {
-            $this->cando[$cap] = $this->authplugins['secondary']->cando[$cap];
+            $this->cando[$cap] = $this->authplugins['secondary']->canDo($cap);
         }
 
         /* Since we implement all auth plugin methods, the 'external' capability
@@ -97,7 +97,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
         $this->cando['external'] = false;
 
         /* Whether we can do logout or not depends on the primary auth plugin */
-        $this->cando['logout'] = $this->authplugins['primary']->cando['logout'];
+        $this->cando['logout'] = $this->authplugins['primary']->canDo('logout');
 
         $msg = 'authsplit:__construct(): '.
                $this->authplugins['primary']->getPluginName().'/'.
