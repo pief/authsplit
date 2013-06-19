@@ -92,10 +92,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             $this->cando[$cap] = $this->authplugins['secondary']->cando[$cap];
         }
 
-        /* Since we implement all auth plugin methods, the 'external' capability
-           must be false */
-        $this->cando['external'] = false;
-
+        $this->cando['external'] = $this->authplugins['primary']->cando['external'];
         /* Whether we can do logout or not depends on the primary auth plugin */
         $this->cando['logout'] = $this->authplugins['primary']->cando['logout'];
 
@@ -144,19 +141,28 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             'authsplit:checkPass(): primary auth plugin authenticated the '.
             'user successfully.', 1, __LINE__, __FILE__
         );
+        return $this->checkUserOnSecondaryAuth($user);
+    }
 
+    /**
+     * Check user on secondary auth
+     *
+     * @param   string $user the user name
+     * @return  bool
+     */
+    public function checkUserOnSecondaryAuth($user) {
         /* Then make sure that the secondary auth plugin also knows about
            the user. */
         $userinfo = $this->authplugins['secondary']->getUserData($user);
         if (!$userinfo) {
             $this->_debug(
-                'authsplit:checkPass(): secondary auth plugin\'s getUserData() '.
+                'authsplit:checkUserOnSecondaryAuth(): secondary auth plugin\'s getUserData() '.
                 'failed, seems user is yet unknown there.', -1,
                 __LINE__, __FILE__
             );
 
             $this->_debug(
-                'authsplit:checkPass(): autocreate_users is set to '.
+                'authsplit:checkUserOnSecondaryAuth(): autocreate_users is set to '.
                 $this->autocreate_users.'.',
                 $this->autocreate_users == 1 ? 1 : -1,
                 __LINE__, __FILE__
@@ -193,7 +199,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
                 return false;
             }
             $this->_debug(
-                'authsplit:checkPass(): primary auth plugin\'s getUserData(): '.
+                'authsplit:checkUserOnSecondaryAuth(): primary auth plugin\'s getUserData(): '.
                 $this->_dumpUserData($params).'.', 1, __LINE__, __FILE__
             );
 
@@ -208,7 +214,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             if ($result === false || $result === null)
             {
                 $this->_debug(
-                    'authsplit:checkPass(): primary auth plugin\'s '.
+                    'authsplit:checkUserOnSecondaryAuth(): primary auth plugin\'s '.
                     'getUserData() could not supply data.', -1,
                     __LINE__, __FILE__
                 );
@@ -596,6 +602,26 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             'cleanGroup("'.$group.'"): "'.$result.'".', 1, __LINE__, __FILE__
         );
         return $result;
+    }
+    
+    /**
+     * Check user+password on external primary auth
+     *
+     * @param   string $user the user name
+     * @param   string $pass the clear text password
+     * @return  bool
+     */
+    public function trustExternal($user, $pass, $sticky = false) { 
+        global $USERINFO;
+        $result = $this->authplugins['primary']->trustExternal($user, $pass, $sticky);
+        if($result) {
+            $user = $_SERVER['REMOTE_USER'];
+            if($this->checkUserOnSecondaryAuth($user)) {
+                $USERINFO = $this->getUserData($user, true);
+                return true;
+}
+        }
+        return false;
     }
 }
 
