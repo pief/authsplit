@@ -124,12 +124,12 @@ authsplit maps DokuWiki's authentication method calls as follows:
 
 - modifyUser(): where authsplit routes a change depends on the actual change
   itself:
-  - passwords are modified in the PRIMARY auth plugin only since by design the
-    SECONDARY auth plugin knows empty ones only
-  - group membership is always modified in the SECONDARY auth plugin
   - for login names, real names and email addresses, authsplit will try to
     modify in the PRIMARY auth plugin first (if that plugin reports being
     capable of modifying it, that is), then in the SECONDARY auth plugin.
+  - passwords will be modified in the PRIMARY auth plugin only since by design
+    the SECONDARY auth plugin knows empty ones only.
+  - group memberships will always be modified in the SECONDARY auth plugin only.
 
 - deleteUser(): authsplit will ALWAYS route delete user requests to the
   SECONDARY auth plugin only. This is because it can't know whether user
@@ -158,24 +158,31 @@ authsplit maps DokuWiki's authentication method calls as follows:
 
 So to summarize which auth plugins are involved in which method calls:
 
-                    PRIMARY AUTH PLUGIN   SECONDARY AUTH PLUGIN
-checkPass()         Authenticated here    Existance required
-                                          (Can create if enabled)
-trustExternal()     Authenticated here    Existance required
-                                          (Can create if enabled)
-logOff()            Done here             -
-getUserData()       Existance required    Stored here
-createUser()        Can create here       Created here
-                    if supported
-modifyUser()        <Depends on the information being modified>
-deleteUser()        -                     Deleted here
-retrieveUsers()     -                     Stored here
-getUserCount()      -                     Counted here
-addGroup()          -                     Created here
-retrieveGroups()    -                     Retrieved here
-isCaseSensitive()   Determined here       -
-cleanUser()         Determined here       -
-cleanGroup()        -                     Determined here
+                     PRIMARY AUTH PLUGIN      SECONDARY AUTH PLUGIN
+--------------------------------------------------------------------------------
+checkPass()          Authenticated here       User existance required*
+trustExternal()      Authenticated here       User existance required*
+logOff()             Done here                -
+getUserData()        User existance required  Stored here
+createUser()         Created here**´          Created here
+modifyUser()         Depends on the information being modified:
+  Login names        Modified here**          Modified here
+  Real names         Modified here**          Modified here
+  eMail addresses    Modified here**          Modified here
+  Passwords          Modified here            -
+  Group memberships  -                        Modified here
+deleteUser()         -                        Deleted here
+retrieveUsers()      -                        Retrieved here
+getUserCount()       -                        Counted here
+addGroup()           -                        Created here
+retrieveGroups()     -                        Retrieved here
+isCaseSensitive()    Determined here          -
+cleanUser()          Determined here          -
+cleanGroup()         -                        Determined here
+
+Legend:
+* : Can be created if autocreate_users == 1
+**: If supported by the auth plugin
 
 This theory tells you, for example, that if you combine authplain as PRIMARY
 auth plugin with authmysql as SECONDARY auth plugin:
