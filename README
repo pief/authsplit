@@ -102,7 +102,7 @@ authsplit maps DokuWiki's authentication method calls as follows:
 - createUser(): this is the method that gets called if users register themselves
   or the Admin uses DokuWiki's user manager to create an account for them.
 
-  authhttp will first check if the user is not known to the PRIMARY auth plugin
+  authsplit will first check if the user is not known to the PRIMARY auth plugin
   yet and whether it is capable of adding users. If so, it will try to create
   the user there, first. This is so that you can use DokuWiki to quickly create
   a user both in DokuWiki AND your common authentication source without having
