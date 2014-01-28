@@ -292,6 +292,15 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
     }
 
     /**
+     * Log the user In (useful for external authentication)
+     *
+     * @return  bool
+     */
+    public function logIn() { 
+        return $this->authplugins['primary']->logIn();
+    }
+
+    /**
      * Return user info
      *
      * Returned info about the given user needs to contain
