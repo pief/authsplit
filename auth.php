@@ -275,7 +275,10 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             );
             return false;
         }
-        msg($this->getLang('autocreated'), -1);
+        if(actionOK('profile'))
+        {
+            msg($this->getLang('autocreated'), -1);
+        }
 
         return true;
     }
