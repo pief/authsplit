@@ -2,6 +2,6 @@ base   authsplit
 author Pieter Hollants
 email  pieter@hollants.com
 date   2014-05-17
-name   authsplit plugin
+name   Split authentication Auth plugin
 desc   Splits DokuWiki authentication among auth plugins
 url    https://www.dokuwiki.org/plugin:authsplit
