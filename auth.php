@@ -319,7 +319,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      */
     public function getUserData($user, $requireGroups = true) {
         /* A user must be present in BOTH auth plugins. */
-        $userinfo = $this->authplugins['primary']->getUserData($user, $requireGroups);
+        $userinfo = $this->authplugins['primary']->getUserData($user, false);
         if (!$userinfo) {
             $this->_debug(
                 'authsplit:checkPass(): primary auth plugin\'s getUserData() '.
@@ -329,7 +329,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             return false;
         }
 
-        $userinfo = $this->authplugins['secondary']->getUserData($user);
+        $userinfo = $this->authplugins['secondary']->getUserData($user, $requireGroups);
         if (!$userinfo) {
             $this->_debug(
                 'authsplit:checkPass(): secondary auth plugin\'s getUserData() '.
