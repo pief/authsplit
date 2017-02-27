@@ -205,7 +205,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      */
     public function _checkUserOnSecondaryAuthPlugin($user) {
         /* User already known? */
-        $userinfo = $this->authplugins['secondary']->getUserData($user);
+        $userinfo = $this->authplugins['secondary']->getUserData($user, false);
         if ($userinfo)
             return true;
 
@@ -241,7 +241,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
         /* Since auth plugins by definition must have a getUserData()
            method, we use the primary auth plugin's data to create a user
            account in the secondary auth plugin. */
-        $params = $this->authplugins['primary']->getUserData($user);
+        $params = $this->authplugins['primary']->getUserData($user, true);
         if (!$params) {
             msg(
                 sprintf(
@@ -384,7 +384,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
     public function createUser($user, $pass, $name, $mail, $grps = null) {
         /* Does the user not exist yet in the primary auth plugin and does it
            support creating users? */
-        $userinfo = $this->authplugins['primary']->getUserData($user);
+        $userinfo = $this->authplugins['primary']->getUserData($user, false);
         if (!$userinfo && $this->authplugins['primary']->cando['addUser']) {
             $result = $this->authplugins['primary']->createUser(
                 $user, $pass, $name, $email, ''
