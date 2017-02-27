@@ -314,11 +314,12 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
      * grps array   list of groups the user is in
      *
      * @param   string $user the user name
+     * @param   bool $requireGroups whether to return user's groups as well
      * @return  array containing user data or false
      */
-    public function getUserData($user) {
+    public function getUserData($user, $requireGroups = true) {
         /* A user must be present in BOTH auth plugins. */
-        $userinfo = $this->authplugins['primary']->getUserData($user);
+        $userinfo = $this->authplugins['primary']->getUserData($user, $requireGroups);
         if (!$userinfo) {
             $this->_debug(
                 'authsplit:checkPass(): primary auth plugin\'s getUserData() '.
