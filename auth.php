@@ -387,7 +387,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
         $userinfo = $this->authplugins['primary']->getUserData($user, false);
         if (!$userinfo && $this->authplugins['primary']->cando['addUser']) {
             $result = $this->authplugins['primary']->createUser(
-                $user, $pass, $name, $email, ''
+                $user, $pass, $name, $email
             );
             if ($result === false || $result === null) {
                 $this->_debug(
