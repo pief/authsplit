@@ -20,3 +20,4 @@ $meta['primary_authplugin']   = array('authtype_nosplit', '_cautionList' => arra
 $meta['secondary_authplugin'] = array('authtype_nosplit', '_cautionList' => array('plugin____authsplit____secondary_authplugin' => 'danger'));
 $meta['autocreate_users']     = array('onoff');
 $meta['debug']                = array('onoff');
+$meta['fallback_authplain']   = array('onoff');
