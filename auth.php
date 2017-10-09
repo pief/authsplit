@@ -13,6 +13,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
     protected $authplugins;
     protected $autocreate_users;
     protected $debug;
+    protected $use_fallback;
 
     /**
      * Show a debug message
@@ -39,7 +40,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
         $this->loadConfig();
 
         /* Load all referenced auth plugins */
-        foreach (array('primary', 'secondary') as $type) {
+        foreach (array('primary', 'secondary', 'fallback') as $type) {
             $settingName = $type.'_authplugin';
             $pluginName = $this->getConf($settingName);
             if (!$pluginName) {
@@ -142,7 +143,16 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
                 'authsplit:checkPass(): primary auth plugin\'s checkPass() '.
                 'failed', -1, __LINE__, __FILE__
             );
-            return false;
+            
+            $this->use_fallback = $this->getConf('use_fallback', null);
+            if ($this->use_fallback === null) {
+                if (!$this->authplugins['fallback']->checkPass($user, $pass)) {
+                   $this->_debug(
+                    'authsplit:checkPass(): fallback auth plugin\'s checkPass() '.
+                    'failed', -1, __LINE__, __FILE__
+                );
+            return false; 
+            }
         }
         $this->_debug(
             'authsplit:checkPass(): primary auth plugin authenticated the '.
@@ -151,6 +161,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
 
         /* Then make sure that the secondary auth plugin also knows about the
            user. */
+                
         return $this->_checkUserOnSecondaryAuthPlugin($user);
     }
 
