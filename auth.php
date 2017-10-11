@@ -13,6 +13,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
     protected $authplugins;
     protected $autocreate_users;
     protected $debug;
+    protected $use_fallback;
 
     /**
      * Show a debug message
@@ -39,7 +40,7 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
         $this->loadConfig();
 
         /* Load all referenced auth plugins */
-        foreach (array('primary', 'secondary') as $type) {
+        foreach (array('primary', 'secondary', 'fallback') as $type) {
             $settingName = $type.'_authplugin';
             $pluginName = $this->getConf($settingName);
             if (!$pluginName) {
@@ -74,6 +75,14 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             $this->success = false;
             return;
         }
+        /* Use fallback auth methode? */
+        $this->use_fallback = $this->getConf('use_fallback', null);
+        if ($this->use_fallback === null) {
+            msg(sprintf($this->getLang('nocfg'), 'use_fallback'), -1);
+            $this->success = false;
+            return;
+        }
+        
 
         /* Of course, to modify login names actually BOTH auth plugins must
            support that. However, at this place we just consider the secondary
@@ -142,15 +151,36 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
                 'authsplit:checkPass(): primary auth plugin\'s checkPass() '.
                 'failed', -1, __LINE__, __FILE__
             );
-            return false;
+            
+            if ($this->use_fallback) {
+                $this->_debug(
+                    'authsplit:checkPass(): use fallback auth plugin\'s  '.
+                    'checkPass()', -1, __LINE__, __FILE__
+                );
+            
+                if (!$this->authplugins['fallback']->checkPass($user, $pass)) {
+                   $this->_debug(
+                    'authsplit:checkPass(): fallback auth plugin\'s checkPass() '.
+                    'failed', -1, __LINE__, __FILE__
+                    );
+            			    return false; 
+                } else {
+                    $this->_debug(
+                'authsplit:checkPass(): fallback auth plugin authenticated the '.
+                'user successfully.', 1, __LINE__, __FILE__
+           );
+                }
+            }
+        } else {
+            $this->_debug(
+                'authsplit:checkPass(): primary auth plugin authenticated the '.
+                'user successfully.', 1, __LINE__, __FILE__
+           );
         }
-        $this->_debug(
-            'authsplit:checkPass(): primary auth plugin authenticated the '.
-            'user successfully.', 1, __LINE__, __FILE__
-        );
 
         /* Then make sure that the secondary auth plugin also knows about the
            user. */
+                
         return $this->_checkUserOnSecondaryAuthPlugin($user);
     }
 
