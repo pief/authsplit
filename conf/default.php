@@ -5,7 +5,8 @@
  * @author Pieter Hollants <pieter@hollants.com>
  */
 
-$conf['primary_authplugin']   = 'authplain';
-$conf['secondary_authplugin'] = 'authplain';
-$conf['autocreate_users']     = 0;
-$conf['debug']                = 0;
+$conf['primary_authplugin']      = 'authplain';
+$conf['secondary_authplugin']    = 'authplain';
+$conf['autocreate_users']        = 0;
+$conf['username_caseconversion'] = 'None';
+$conf['debug']                   = 0;

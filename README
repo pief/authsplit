@@ -224,6 +224,10 @@ authsplit itself uses the following configuration settings:
 - secondary_authplugin: This is the DokuWiki auth plugin that will be used to
   store additional user information such as real names, email addresses and
   groups.
+- username_caseconversion: If one of the two auth plugins used is
+  case-sensitive, it may be necessary to enable this setting to let authsplit
+  convert the username to either uppercase or lowercase (eg. when combining
+  authldap which is case-insensitive with authsplit which is not).
 - autocreate_users: If enabled, authsplit will automatically create user
   accounts for any users that exist in the PRIMARY auth plugin, but are yet
   unknown in the SECONDARY auth plugin. If disabled, users will either have to

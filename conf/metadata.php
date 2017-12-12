@@ -16,7 +16,8 @@ if (!class_exists('setting_authtype_nosplit')) {
     }
 }
 
-$meta['primary_authplugin']   = array('authtype_nosplit', '_cautionList' => array('plugin____authsplit____primary_authplugin' => 'danger'));
-$meta['secondary_authplugin'] = array('authtype_nosplit', '_cautionList' => array('plugin____authsplit____secondary_authplugin' => 'danger'));
-$meta['autocreate_users']     = array('onoff');
-$meta['debug']                = array('onoff');
+$meta['primary_authplugin']       = array('authtype_nosplit', '_cautionList' => array('plugin____authsplit____primary_authplugin' => 'danger'));
+$meta['secondary_authplugin']     = array('authtype_nosplit', '_cautionList' => array('plugin____authsplit____secondary_authplugin' => 'danger'));
+$meta['autocreate_users']         = array('onoff');
+$meta['username_caseconversion']  = array('multichoice', '_choices' => array('None', 'To uppercase', 'To lowercase'));
+$meta['debug']                    = array('onoff');

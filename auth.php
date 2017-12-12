@@ -67,6 +67,14 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             return;
         }
 
+        /* Convert username's case? */
+        $this->username_caseconversion = $this->getConf('username_caseconversion', null);
+        if ($this->username_caseconversion === null) {
+            msg(sprintf($this->getLang('nocfg'), 'username_caseconversion'), -1);
+            $this->success = false;
+            return;
+        }
+
         /* Show debug messages? */
         $this->debug = $this->getConf('debug', null);
         if ($this->debug === null) {
@@ -655,6 +663,23 @@ class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
             'authsplit:cleanUser(): primary auth plugin\'s '.
             'cleanUser("'.$user.'"): "'.$result.'".', 1, __LINE__, __FILE__
         );
+
+        /* Apply case conversion? */
+        if ($this->username_caseconversion == 'To uppercase') {
+            $result = strtoupper($result);
+            $this->_debug(
+                'authsplit:cleanUser(): converted username to uppercase: '.
+                $result, 1, __LINE__, __FILE__
+            );
+        }
+        elseif ($this->username_caseconversion == 'To lowercase') {
+            $result = strtolower($result);
+            $this->_debug(
+                'authsplit:cleanUser(): converted username to lowercase: '.
+                $result, 1, __LINE__, __FILE__
+            );
+        }
+
         return $result;
     }
 
