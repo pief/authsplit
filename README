@@ -233,6 +233,9 @@ authsplit itself uses the following configuration settings:
   unknown in the SECONDARY auth plugin. If disabled, users will either have to
   register themselves or created by the admin (eg. if registration has been
   disabled).
+- debug: If enabled, authsplit will flood the screen with debugging messages
+  meant to aid in troubleshooting its operation. This setting should not be
+  enabled in productive setups.
 
 Note that you'll have to take some of the used auth plugin's settings into
 consideration whereas some may not apply any longer due to the way authsplit
