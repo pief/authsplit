@@ -8,7 +8,7 @@
 /* Define a custom "authtype" class that does not show authsplit */
 if (!class_exists('setting_authtype_nosplit')) {
     class setting_authtype_nosplit extends setting_authtype {
-        function initialize($default, $local, $protected) {
+        function initialize($default=null, $local=null, $protected=null) {
             parent::initialize($default, $local, $protected);
 
             $this->_choices = array_diff($this->_choices, array("authsplit"));
