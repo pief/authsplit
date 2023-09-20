@@ -133,6 +133,8 @@ class auth_plugin_authsplit extends AuthPlugin {
         }
         $msg = rtrim($msg, ', ').'.';
         $this->_debug($msg, 1, __LINE__, __FILE__);
+
+        $this->success = true;
     }
 
     /**
