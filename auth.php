@@ -499,6 +499,12 @@ class auth_plugin_authsplit extends AuthPlugin {
                         return false;
                     }
                 }
+                else {
+                    $this->_debug(
+                        "authsplit:modifyUser(): primary auth plugin " .
+                        "doesn\'t support modifying $field.", 1, __LINE__, __FILE__
+                    );
+                }
 
                 /* Now in the secondary auth plugin. */
                 $result = $this->authplugins['secondary']->modifyUser(
