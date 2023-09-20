@@ -9,7 +9,9 @@
 // must be run within Dokuwiki
 if(!defined('DOKU_INC')) die();
 
-class auth_plugin_authsplit extends DokuWiki_Auth_Plugin {
+use dokuwiki\Extension\AuthPlugin;
+
+class auth_plugin_authsplit extends AuthPlugin {
     protected $authplugins;
     protected $autocreate_users;
     protected $debug;
