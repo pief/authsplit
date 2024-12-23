@@ -126,6 +126,7 @@ class auth_plugin_authsplit extends AuthPlugin {
             'getUserCount' => 'get user counts',
             'getGroups'    => 'get groups',
             'logout'       => 'logout users',
+            'external'     => 'external auth',
         );
         foreach ($this->cando as $key => $value) {
             if ($this->cando[$key])
@@ -196,7 +197,7 @@ class auth_plugin_authsplit extends AuthPlugin {
         $user = $_SERVER['REMOTE_USER'];
         $this->_debug(
             'authsplit:trustExternal(): derived user name: ' . $user,
-            -1, __LINE__, __FILE__
+            1, __LINE__, __FILE__
         );
 
         /* Then make sure the secondary auth plugin also knows about the
@@ -335,8 +336,8 @@ class auth_plugin_authsplit extends AuthPlugin {
         $userinfo = $this->authplugins['primary']->getUserData($user, false);
         if (!$userinfo) {
             $this->_debug(
-                'authsplit:checkPass(): primary auth plugin\'s getUserData() '.
-                'failed, seems user is yet unknown there.', 1,
+                'authsplit:getUserData(): primary auth plugin\'s getUserData() '.
+                'failed, seems user is yet unknown there.', -1,
                 __LINE__, __FILE__
             );
             return false;
@@ -345,8 +346,8 @@ class auth_plugin_authsplit extends AuthPlugin {
         $userinfo = $this->authplugins['secondary']->getUserData($user, $requireGroups);
         if (!$userinfo) {
             $this->_debug(
-                'authsplit:checkPass(): secondary auth plugin\'s getUserData() '.
-                'failed, seems user is yet unknown there.', 1,
+                'authsplit:getUserData(): secondary auth plugin\'s getUserData() '.
+                'failed, seems user is yet unknown there.', -1,
                 __LINE__, __FILE__
             );
             return false;
