@@ -318,6 +318,38 @@ class auth_plugin_authsplit extends AuthPlugin {
     }
 
     /**
+     * Get an option of the primary auth method
+     *
+     * @param string $option The name of the wanted option
+     *
+     * @return string  The option value of the primary method
+     */
+    public function getOption($option) {
+        return $this->authplugins['primary']->getOption($option);
+    }
+
+    /**
+     * Call to the register method of the primary auth
+     *
+     * @param array $userdata User to register
+     * @param string $servicename Service name
+     *
+     * @return bool  Status of the registration
+     */
+    public function registerOAuthUser(&$userdata, $servicename) {
+        $register = $this->authplugins['primary']->registerOAuthUser($userdata, $servicename);
+        if (!$register) {
+          $this->_debug(
+              'authsplit:registerOAuthUser(): primary auth plugin\'s registerOAuthUser() '.
+              'failed.', -1, __LINE__, __FILE__
+          );
+          return false;
+        }
+
+        return $register;
+    }
+
+    /**
      * Return user info
      *
      * Returned info about the given user needs to contain
@@ -358,6 +390,29 @@ class auth_plugin_authsplit extends AuthPlugin {
         );
 
         return $userinfo;
+    }
+
+    /**
+     * Find a user by email address
+     *
+     * @param  string  user's email
+     * @return bool|string
+     */
+    public function getUserByEmail($email) {
+      $user = $this->authplugins['primary']->getUserByEmail($email);
+      if (!$user) {
+        $this->_debug(
+            'authsplit:getUserByEmail(): primary auth plugin\'s getUserByEmail() '.
+            'failed.', -1, __LINE__, __FILE__
+        );
+        return false;
+      }
+      $this->_debug(
+          'authsplit:getUserByEmail(): primary auth plugin\'s getUserByEmail(): '.
+          $user.'.', 1, __LINE__, __FILE__
+      );
+
+      return $user;
     }
 
     /**
