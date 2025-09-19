@@ -126,6 +126,7 @@ class auth_plugin_authsplit extends AuthPlugin {
             'getUserCount' => 'get user counts',
             'getGroups'    => 'get groups',
             'logout'       => 'logout users',
+            'external'     => 'external auth',
         );
         foreach ($this->cando as $key => $value) {
             if ($this->cando[$key])
@@ -196,7 +197,7 @@ class auth_plugin_authsplit extends AuthPlugin {
         $user = $_SERVER['REMOTE_USER'];
         $this->_debug(
             'authsplit:trustExternal(): derived user name: ' . $user,
-            -1, __LINE__, __FILE__
+            1, __LINE__, __FILE__
         );
 
         /* Then make sure the secondary auth plugin also knows about the
@@ -317,6 +318,38 @@ class auth_plugin_authsplit extends AuthPlugin {
     }
 
     /**
+     * Get an option of the primary auth method
+     *
+     * @param string $option The name of the wanted option
+     *
+     * @return string  The option value of the primary method
+     */
+    public function getOption($option) {
+        return $this->authplugins['primary']->getOption($option);
+    }
+
+    /**
+     * Call to the register method of the primary auth
+     *
+     * @param array $userdata User to register
+     * @param string $servicename Service name
+     *
+     * @return bool  Status of the registration
+     */
+    public function registerOAuthUser(&$userdata, $servicename) {
+        $register = $this->authplugins['primary']->registerOAuthUser($userdata, $servicename);
+        if (!$register) {
+          $this->_debug(
+              'authsplit:registerOAuthUser(): primary auth plugin\'s registerOAuthUser() '.
+              'failed.', -1, __LINE__, __FILE__
+          );
+          return false;
+        }
+
+        return $register;
+    }
+
+    /**
      * Return user info
      *
      * Returned info about the given user needs to contain
@@ -335,8 +368,8 @@ class auth_plugin_authsplit extends AuthPlugin {
         $userinfo = $this->authplugins['primary']->getUserData($user, false);
         if (!$userinfo) {
             $this->_debug(
-                'authsplit:checkPass(): primary auth plugin\'s getUserData() '.
-                'failed, seems user is yet unknown there.', 1,
+                'authsplit:getUserData(): primary auth plugin\'s getUserData() '.
+                'failed, seems user is yet unknown there.', -1,
                 __LINE__, __FILE__
             );
             return false;
@@ -345,8 +378,8 @@ class auth_plugin_authsplit extends AuthPlugin {
         $userinfo = $this->authplugins['secondary']->getUserData($user, $requireGroups);
         if (!$userinfo) {
             $this->_debug(
-                'authsplit:checkPass(): secondary auth plugin\'s getUserData() '.
-                'failed, seems user is yet unknown there.', 1,
+                'authsplit:getUserData(): secondary auth plugin\'s getUserData() '.
+                'failed, seems user is yet unknown there.', -1,
                 __LINE__, __FILE__
             );
             return false;
@@ -357,6 +390,29 @@ class auth_plugin_authsplit extends AuthPlugin {
         );
 
         return $userinfo;
+    }
+
+    /**
+     * Find a user by email address
+     *
+     * @param  string  user's email
+     * @return bool|string
+     */
+    public function getUserByEmail($email) {
+      $user = $this->authplugins['primary']->getUserByEmail($email);
+      if (!$user) {
+        $this->_debug(
+            'authsplit:getUserByEmail(): primary auth plugin\'s getUserByEmail() '.
+            'failed.', -1, __LINE__, __FILE__
+        );
+        return false;
+      }
+      $this->_debug(
+          'authsplit:getUserByEmail(): primary auth plugin\'s getUserByEmail(): '.
+          $user.'.', 1, __LINE__, __FILE__
+      );
+
+      return $user;
     }
 
     /**
